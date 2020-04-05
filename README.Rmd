@@ -54,14 +54,30 @@ d2 <- d %>%
     day = lubridate::wday(date, label = TRUE)
   ) %>% 
   inner_join(tokyo, ., by = c("市区町村名" = "エリア"))
+```
 
+```{r plot_first_week}
 d2 %>%
   filter(week_begin == as.Date("2020-02-02")) %>% 
   ggplot() +
   geom_sf(aes(fill = visitors), colour = NA) +
   facet_grid(rows = vars(対象分類), cols = vars(day)) +
   theme_minimal() +
-  theme(legend.position = "top")
+  theme(legend.position = "top") +
+  ggtitle("2020/2/2〜2/8")
 ```
 
+
+```{r plot_changes}
+d_mean <- d2 %>%
+  group_by(市区町村名, 対象分類, is_holiday = if_else(is_holiday, "holiday", "weekday"), week_begin) %>%
+  summarise(visitors = mean(visitors)) %>%
+  arrange(week_begin) %>%
+  mutate(rel_visitors = visitors / first(visitors)) %>%
+  ungroup()
+
+ggplot(d_mean, aes(week_begin, rel_visitors, colour = 市区町村名)) +
+  geom_line() +
+  facet_grid(rows = vars(is_holiday, 対象分類))
+```
 
