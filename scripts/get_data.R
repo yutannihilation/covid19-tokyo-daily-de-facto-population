@@ -26,11 +26,8 @@ d_raw <- map_dfr(sheets, function(sheet) {
 
 d <- d_raw %>% 
   mutate(
-    date = as_date(as.integer(date))
+    date = as_date(as.integer(date), origin = "1899-12-30")
   )
-
-# 2090年になってるので修正
-year(d$date) <- 2020
 
 # validation ----------------------------------------------------------
 
