@@ -1,0 +1,29 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# ヤフー・データソリューションの「東京23区滞在人口推計値の日別遷移（全体・来訪者・住人） 」をRでプロットしてみる
+
+## データ
+
+出典：ヤフー・データソリューション (<https://ds.yahoo.co.jp/report/>)
+
+## 
+
+```{r library}
+library(readr)
+```
+
+```{r}
+d <- readr::read_csv(here::here("data/data.csv"))
+```
+
