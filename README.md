@@ -51,42 +51,61 @@ tokyo <- read_sf(here::here("data/tokyo.gpkg"))
 
 d2 <- d %>%
   mutate(
-    is_holiday = zipangu::is_jholiday(date) | (lubridate::wday(date) %in% 6:7),
-    week_begin = lubridate::floor_date(date, "weeks"),
-    day = lubridate::wday(date, label = TRUE)
+    is_holiday = zipangu::is_jholiday(date) | (lubridate::wday(date) %in% c(1, 7)),
+    is_holiday = factor(if_else(is_holiday, "休日", "平日"), levels = c("平日", "休日")),
+    # 土日は連続させたいので、月曜始まりにする
+    week_begin = lubridate::floor_date(date, "weeks", week_start = 1),
+    day = lubridate::wday(date, label = TRUE, week_start = 1)
   ) %>% 
   inner_join(tokyo, ., by = c("市区町村名" = "エリア"))
 ```
 
+とりあえず1週間分プロットしてみる。
+
 ``` r
 d2 %>%
-  filter(week_begin == as.Date("2020-02-02")) %>% 
+  filter(week_begin == as.Date("2020-02-03")) %>% 
   ggplot() +
   geom_sf(aes(fill = visitors), colour = NA) +
   facet_grid(rows = vars(対象分類), cols = vars(day)) +
   theme_minimal() +
   theme(legend.position = "top") +
   scale_fill_viridis_c(option = "B") +
-  ggtitle("2020/2/2〜2/8")
+  ggtitle("2020/2/3〜2/9")
 ```
 
 ![](README_files/figure-gfm/plot_first_week-1.png)<!-- -->
 
+休日と平日で傾向が違うので、別々に変化を見る。
+
 ``` r
+# 2020年2月の区別・休/平日別の平均人口を基準とする
+d_feb <- d2 %>% 
+  sf::st_set_geometry(NULL) %>% 
+  filter(lubridate::month(date) == 2) %>%
+  group_by(市区町村名, 対象分類, is_holiday) %>% 
+  summarise(visitors_feb = mean(visitors))
+
 d_weekly <- d2 %>%
-  # 2020-02-01だけの週を取り除く
-  filter(week_begin >= as.Date("2020-02-02")) %>% 
-  group_by(市区町村名, 対象分類, is_holiday = if_else(is_holiday, "holiday", "weekday"), week_begin) %>%
+  # 3月以降
+  filter(lubridate::month(week_begin) > 2) %>%
+  group_by(市区町村名, 対象分類, is_holiday, week_begin) %>%
   summarise(visitors = mean(visitors)) %>%
-  arrange(week_begin) %>%
+  ungroup() %>%
+  inner_join(d_feb, by = c("市区町村名", "対象分類", "is_holiday")) %>% 
   mutate(
-    visitors_lift = visitors / first(visitors) - 1
-  ) %>%
-  ungroup()
+    visitors_lift = visitors / visitors_feb - 1
+  )
 
 ggplot(d_weekly, aes(week_begin, visitors_lift, colour = 市区町村名)) +
   geom_line() +
-  facet_grid(rows = vars(is_holiday, 対象分類))
+  geom_point() +
+  facet_grid(rows = vars(is_holiday, 対象分類)) +
+  scale_colour_viridis_d(option = "B", alpha = 0.7) +
+  scale_x_date(date_breaks = "weeks") +
+  scale_y_continuous("変化", labels = scales::percent) +
+  theme_minimal() +
+  labs(title = "2020年3月以降の滞在人口の変化", subtitle = "※2020年2月の区別・休/平日別の平均人口を基準とする")
 ```
 
 ![](README_files/figure-gfm/plot_changes-1.png)<!-- -->
@@ -102,8 +121,9 @@ ggplot(d_weekly_de_facto) +
   geom_sf(aes(fill = visitors_lift), colour = NA) +
   facet_grid(cols = vars(is_holiday), rows = vars(week_begin)) +
   theme_minimal() +
-  theme(legend.position = "top") +
-  scale_fill_gradient2()
+  scale_fill_gradient2("変化", labels = scales::percent) +
+  labs(title = "2020年3月以降の滞在人口の変化", subtitle = "※2020年2月の区別・休/平日別の平均人口を基準とする", 
+       caption = "データの出典:ヤフー・データソリューション, 国土交通省　国土数値情報（行政区域データ）")
 ```
 
 ![](README_files/figure-gfm/animate-1.png)<!-- -->
