@@ -66,6 +66,7 @@ d2 %>%
   facet_grid(rows = vars(対象分類), cols = vars(day)) +
   theme_minimal() +
   theme(legend.position = "top") +
+  scale_fill_viridis_c(option = "B") +
   ggtitle("2020/2/2〜2/8")
 ```
 
@@ -85,3 +86,25 @@ ggplot(d_mean, aes(week_begin, rel_visitors, colour = 市区町村名)) +
 ```
 
 ![](README_files/figure-gfm/plot_changes-1.png)<!-- -->
+
+住民は無視しても良さそうなので、来訪者のみの変化を見る
+
+``` r
+d_mean_de_facto <- d_mean %>% 
+  filter(対象分類 == "来訪者") %>% 
+  mutate(week_id = group_indices(., week_begin))
+
+library(gganimate)
+
+ggplot(d_mean_de_facto) +
+  geom_sf(aes(fill = rel_visitors), colour = NA) +
+  facet_grid(cols = vars(is_holiday)) +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  scale_fill_viridis_c(option = "B") +
+  labs(title = "Week: {frame_time}") +
+  transition_time(week_id) +
+  ease_aes('linear')
+```
+
+![](README_files/figure-gfm/animate-1.gif)<!-- -->
