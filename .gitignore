@@ -3,5 +3,5 @@
 .RData
 .Ruserdata
 
-/data/raw_data.xlsx
+/data/raw_data*.xlsx
 /cache

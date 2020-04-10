@@ -4,8 +4,8 @@ library(dplyr, warn.conflicts = FALSE)
 library(tidyr)
 library(lubridate)
 
-xlsx_file <- here::here("data/raw_data.xlsx")
-xlsx_url <- "https://dfi-place.west.edge.storage-yahoo.jp/web/report/%E6%9D%B1%E4%BA%AC23%E5%8C%BA%E6%8E%A8%E7%A7%BB0403.xlsx"
+xlsx_file <- here::here("data/raw_data0408.xlsx")
+xlsx_url <- "https://dfi-place.west.edge.storage-yahoo.jp/web/report/%E6%9D%B1%E4%BA%AC23%E5%8C%BA%E6%8E%A8%E7%A7%BB0408.xlsx"
 csv_file <- here::here("data/data.csv")
 
 if (!file.exists(xlsx_file)) {
