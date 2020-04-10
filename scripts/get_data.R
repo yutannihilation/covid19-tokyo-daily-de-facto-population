@@ -4,15 +4,11 @@ library(dplyr, warn.conflicts = FALSE)
 library(tidyr)
 library(lubridate)
 
-date <- "0409"
+xlsx_file <- here::here("data/raw_data.xlsx")
+xlsx_url <- glue::glue("https://dfi-place.west.edge.storage-yahoo.jp/web/report/%E6%9D%B1%E4%BA%AC23%E5%8C%BA%E6%8E%A8%E7%A7%BB.xlsx")
+csv_file <- here::here(glue::glue("data/data.csv"))
 
-xlsx_file <- here::here(glue::glue("data/raw_data{date}.xlsx"))
-xlsx_url <- glue::glue("https://dfi-place.west.edge.storage-yahoo.jp/web/report/%E6%9D%B1%E4%BA%AC23%E5%8C%BA%E6%8E%A8%E7%A7%BB{date}.xlsx")
-csv_file <- here::here(glue::glue("data/data{date}.csv"))
-
-if (!file.exists(xlsx_file)) {
-  download.file(xlsx_url, xlsx_file)
-}
+download.file(xlsx_url, xlsx_file)
 
 sheets <- excel_sheets(xlsx_file)
 
@@ -53,23 +49,3 @@ d_filtered <- d %>%
   )
 
 readr::write_csv(d_filtered, csv_file)
-
-# Workaround ---------------------------------------------------------------------
-
-# 4/9のデータに過去分が含まれてなかったので workaroundとして前日分とjoinしてdistinctを取る
-
-d_old <- readr::read_csv(here::here("data/data0408.csv"))
-d_joined <- bind_rows(d_filtered, d_old) %>% 
-  distinct() %>% 
-  arrange(エリア, 対象分類, date)
-
-# 重複している行があればおかしい
-invalid <- d_joined %>% 
-  group_by(エリア, 対象分類, date) %>% 
-  filter(n() > 1)
-
-if (nrow(invalid)) {
-  rlang::abort("some rows are duplicated!!!")
-}
-
-readr::write_csv(d_joined, here::here("data/data.csv"))
