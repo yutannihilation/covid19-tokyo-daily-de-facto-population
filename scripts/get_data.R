@@ -4,48 +4,56 @@ library(dplyr, warn.conflicts = FALSE)
 library(tidyr)
 library(lubridate)
 
-xlsx_file <- here::here("data/raw_data.xlsx")
-xlsx_url <- glue::glue("https://dfi-place.west.edge.storage-yahoo.jp/web/report/%E6%9D%B1%E4%BA%AC23%E5%8C%BA%E6%8E%A8%E7%A7%BB.xlsx")
-csv_file <- here::here(glue::glue("data/data.csv"))
+xlsx_urls <- c(
+  "https://dfi-place.west.edge.storage-yahoo.jp/web/report/come_in_index_japan.xlsx",
+  "https://dfi-place.west.edge.storage-yahoo.jp/web/report/go_out_index_japan.xlsx"
+)
 
-download.file(xlsx_url, xlsx_file)
+xlsx_files <- here::here("data", basename(xlsx_urls))
 
-sheets <- excel_sheets(xlsx_file)
+walk2(
+  xlsx_urls,
+  xlsx_files,
+  ~ download.file(.x, .y)
+)
 
-d_raw <- map_dfr(sheets, function(sheet) {
-  read_xlsx(xlsx_file, sheet = sheet) %>%
-    fill(エリア) %>% 
-    pivot_longer(
-      -c(エリア, 対象分類),
-      names_to = "date",
-      values_to = "visitors"
+
+process_one_xlsx <- function(xlsx_file) {
+  sheets <- excel_sheets(xlsx_file)
+  sheets_data <- sheets[-length(sheets)]
+  sheets_metadata_wday <- sheets[length(sheets)]
+  
+  d_metadata_wday <- read_xlsx(
+    xlsx_file,
+    sheet = sheets_metadata_wday
+  )
+  colnames(d_metadata_wday) <- c("date_last_year", "wday_last_year", "date", "wday")
+  
+  d_metadata_wday <- d_metadata_wday %>% 
+    transmute(
+      date = date(date),
+      # その日が土日または祝日か
+      is_holiday  = wday(date) %in% c(1, 7) | stringr::str_detect(wday, "祝日"),
+      # 比較対象の日（2019年）が土日または祝日か
+      was_holiday = wday(date_last_year) %in% c(1, 7) | stringr::str_detect(wday_last_year, "祝日")
     )
-})
+  
+  d_raw <- map_dfr(set_names(sheets_data), function(sheet) {
+    read_xlsx(xlsx_file, sheet = sheet) %>%
+      rename(date = any_of(c("【来訪】日付", "【往訪】日付"))) %>% 
+      mutate(date = date(date)) %>% 
+      pivot_longer(-date,
+        names_to = "area",
+        values_to = "visitors_relative"
+      )
+  }, .id = "prefecture") %>% 
+    relocate(date)
+  
+  d <- d_raw %>% 
+    left_join(d_metadata_wday, by = "date")
+  
+  csv_file <- paste0(tools::file_path_sans_ext(xlsx_file), ".csv")
+  readr::write_csv(d, csv_file)
+}
 
-d <- d_raw %>% 
-  mutate(
-    date = as_date(as.integer(date), origin = "1899-12-30")
-  )
-
-# validation ----------------------------------------------------------
-
-# 来訪者+住人=全体 のはず
-d %>% 
-  group_split(エリア) %>% 
-  walk(function(x) {
-    x <- pivot_wider(x, names_from = 対象分類, values_from = visitors)
-    invalid <- filter(x, 来訪者 + 住人 != 全体)
-    if (nrow(invalid) > 0) {
-      rlang::abort(glue::glue("something is wrong with {x$エリア[1]}"))
-    }
-  })
-
-# write data ---------------------------------------------------------
-
-d_filtered <- d %>% 
-  filter(
-    エリア != "東京23区全体",
-    対象分類 != "全体"
-  )
-
-readr::write_csv(d_filtered, csv_file)
+walk(xlsx_files, process_one_xlsx)
